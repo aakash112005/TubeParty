@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: tubeparty-server
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CLIENT_URL
+        sync: false
+      - key: MONGO_URI
+        sync: false
+      - key: ROOM_INACTIVITY_TIMEOUT_MINUTES
+        value: 60
