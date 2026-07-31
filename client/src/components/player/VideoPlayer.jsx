@@ -196,7 +196,7 @@ import { useYouTubePlayer } from '../../hooks/useYouTubePlayer';
 import { useRoom } from '../../context/RoomContext';
 import { PlayerSkeleton } from '../ui/Skeleton';
 import { EmojiReactionsOverlay } from './EmojiReactionsOverlay';
-import { CustomControls } from './CustomControls';
+import { CustomControls } from './Customcontrols';
 
 const SYNC_TOLERANCE_SECONDS = 1.5;
 const SEEK_POLL_INTERVAL_MS = 1000;
