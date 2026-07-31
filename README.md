@@ -34,6 +34,66 @@ Watch YouTube videos together with friends, perfectly in sync. Create a room, sh
 
 ---
 
+---
+
+## 📸 Screenshots
+
+### 🏠 Landing Page
+
+Create a room or join an existing watch party with a clean and responsive interface.
+
+![Landing Page](./screenshots/landing.png)
+
+---
+
+### 🎬 Watch Party Room
+
+The main synchronized viewing interface featuring the YouTube player, participants list, activity feed, reactions, and live chat.
+
+![Watch Party Room](./screenshots/watchparty.png)
+
+---
+
+### ▶️ Video Synchronization
+
+Watch YouTube videos together in real time with synchronized playback controls across all connected participants.
+
+![Video Synchronization](./screenshots/room.png)
+
+---
+
+### 👥 Role Management
+
+The host can promote participants to moderators, transfer host privileges, or remove users from the room.
+
+![Role Management](./screenshots/role.png)
+
+---
+
+### 💬 Real-Time Chat
+
+Built-in live chat powered by Socket.IO for instant communication during watch parties.
+
+![Live Chat](./screenshots/chatsection(1).png)
+
+---
+
+### 🔗 Invite Friends
+
+Invite others instantly using the room code, shareable link, QR code, WhatsApp, Email, or the native Share API.
+
+![Invite Friends](./screenshots/invite.png)
+
+---
+
+### ⚙️ User Preferences
+
+Customize your experience with dark mode, notifications, animations, compact mode, and sound effects.
+
+![Settings](./screenshots/settings.png)
+
+---
+
 ## Tech Stack
 
 | Layer      | Technology                                                                 |
