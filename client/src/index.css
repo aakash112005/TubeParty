@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Dark theme (default) - deep charcoal-blue, never pure black so
+     glass surfaces and shadows still read as "depth" rather than
+     just a flat void. */
+  --color-bg: 11 14 20;
+  --color-surface: 18 21 31;
+  --color-surface-hover: 24 28 41;
+  --color-border: 35 40 58;
+  --color-muted: 139 146 168;
+  --color-ink: 244 245 247;
+}
+
+.light {
+  --color-bg: 247 247 251;
+  --color-surface: 255 255 255;
+  --color-surface-hover: 243 243 250;
+  --color-border: 228 230 240;
+  --color-muted: 107 114 128;
+  --color-ink: 20 22 31;
+}
+
+* {
+  border-color: rgb(var(--color-border));
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-bg text-ink font-body antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  @apply font-display;
+}
+
+.font-mono {
+  letter-spacing: 0.04em;
+}
+
+::selection {
+  background-color: rgba(124, 108, 255, 0.35);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--color-border));
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--color-muted));
+}
+
+:focus-visible {
+  outline: 2px solid #7c6cff;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@layer components {
+  .glass {
+    @apply bg-surface/60 backdrop-blur-xl border border-border;
+  }
+
+  .glass-card {
+    @apply glass rounded-2xl shadow-glass;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl font-medium
+      transition-all duration-200 ease-out select-none
+      disabled:opacity-50 disabled:cursor-not-allowed
+      active:scale-[0.97];
+  }
+
+  .btn-primary {
+    @apply btn bg-primary text-white hover:bg-primary-600 shadow-glow-primary;
+  }
+
+  .btn-secondary {
+    @apply btn bg-surface border border-border text-ink hover:bg-surface-hover;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent text-muted hover:text-ink hover:bg-surface-hover;
+  }
+
+  .btn-danger {
+    @apply btn bg-danger/10 text-danger border border-danger/30 hover:bg-danger/20;
+  }
+
+  .input-field {
+    @apply w-full rounded-xl bg-surface border border-border px-4 py-3 text-ink
+      placeholder:text-muted outline-none transition-colors
+      focus:border-primary focus:ring-2 focus:ring-primary/20;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden bg-surface-hover rounded-lg;
+    background-image: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0) 0,
+      rgba(255, 255, 255, 0.06) 50%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    background-size: 1000px 100%;
+    animation: shimmer 1.6s linear infinite;
+  }
+}
