@@ -39,7 +39,7 @@ const roomSchema = new mongoose.Schema(
     lastActivityAt: {
       type: Date,
       default: Date.now,
-      expires: 20 * 60, // 1200 seconds
+      expires: 60 * 60, 
     },
   },
   { timestamps: true }
