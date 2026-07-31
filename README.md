@@ -2,7 +2,7 @@
 
 Watch YouTube videos together with friends, perfectly in sync. Create a room, share the code, and every play/pause/seek/video-change is broadcast to everyone in real time over Socket.IO.
 
-**Live demo:** _add your deployed URL here after deploying (see [Deployment](#deployment))_
+**Live demo:** https://tube-party-phi.vercel.app
 
 > A full synchronization/role-management audit was performed after this project's initial build - see the [Bug Fix Log](./ARCHITECTURE.md#bug-fix-log-synchronization--role-management-audit) in `ARCHITECTURE.md` for every issue found, its root cause, and how it was fixed (26 automated regression tests, all passing).
 
