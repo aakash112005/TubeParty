@@ -12,11 +12,15 @@ import {
   LuChevronLeft,
   LuChevronRight,
   LuCheck,
+  LuRotateCcw,
+  LuRotateCw,
 } from 'react-icons/lu';
 
 const POLL_MS = 250;
-const AUTO_HIDE_MS = 2500;
+const AUTO_HIDE_MS = 5000;
 const SEEK_STEP_SECONDS = 5;
+const SKIP_SECONDS = 10;
+const DOUBLE_TAP_WINDOW_MS = 400;
 const VOLUME_STEP = 5;
 const SEEK_ACCENT = '#ff0000'; // YouTube red
 
@@ -69,6 +73,38 @@ function usePopoverDismiss(open, onClose) {
   }, [open, onClose]);
 
   return ref;
+}
+
+// Transient "-10s" / "+10s" indicator on double-click skip. Fades in
+// on mount and fades out just before its parent unmounts it 500ms
+// later - done via plain opacity state rather than a Tailwind
+// arbitrary @keyframes animation, since that syntax only works if a
+// matching keyframe is already defined elsewhere in the project's
+// CSS, which isn't something to assume here.
+function SkipFlashBadge({ direction, seconds }) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const showFrame = requestAnimationFrame(() => setVisible(true));
+    const hideTimeout = setTimeout(() => setVisible(false), 350);
+    return () => {
+      cancelAnimationFrame(showFrame);
+      clearTimeout(hideTimeout);
+    };
+  }, []);
+
+  return (
+    <div
+      className={`pointer-events-none absolute inset-y-0 z-[6] flex w-1/2 items-center justify-center transition-opacity duration-150 ${
+        visible ? 'opacity-100' : 'opacity-0'
+      } ${direction === 'back' ? 'left-0' : 'right-0'}`}
+    >
+      <div className="flex flex-col items-center gap-1 rounded-full bg-black/60 px-5 py-4 text-white">
+        {direction === 'back' ? <LuRotateCcw className="h-6 w-6" /> : <LuRotateCw className="h-6 w-6" />}
+        <span className="text-xs font-medium">{seconds} sec</span>
+      </div>
+    </div>
+  );
 }
 
 // A small icon button with a hover tooltip, used for every action in
@@ -124,9 +160,12 @@ export function CustomControls({ playerRef, ready, YT, videoId, onSeek }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsView, setSettingsView] = useState('main'); // 'main' | 'speed' | 'quality'
   const [volumeOpen, setVolumeOpen] = useState(false);
+  const [skipFlash, setSkipFlash] = useState(null); // { direction: 'back' | 'forward', id: number }
 
   const wrapperRef = useRef(null);
   const hideTimeoutRef = useRef(null);
+  const lastTapRef = useRef({ left: 0, right: 0 });
+  const tapCountRef = useRef({ left: 0, right: 0 });
   const anyPopoverOpen = settingsOpen || volumeOpen;
 
   const settingsRef = usePopoverDismiss(settingsOpen, () => {
@@ -200,22 +239,29 @@ export function CustomControls({ playerRef, ready, YT, videoId, onSeek }) {
     return () => document.removeEventListener('fullscreenchange', handleChange);
   }, []);
 
-  // Auto-hide the bar while playing; always visible while paused or
-  // while a popover is open.
+  // Auto-hide the whole overlay (bottom bar + center cluster) after
+  // AUTO_HIDE_MS of no cursor movement/interaction, regardless of
+  // play/pause state - matches YouTube's own behavior. Cancelled
+  // while a popover (settings/volume) is open so it can't vanish out
+  // from under an open menu.
   useEffect(() => {
     clearTimeout(hideTimeoutRef.current);
-    if (isPlaying && !anyPopoverOpen) {
+    if (!anyPopoverOpen) {
       hideTimeoutRef.current = setTimeout(() => setBarVisible(false), AUTO_HIDE_MS);
     } else {
       setBarVisible(true);
     }
     return () => clearTimeout(hideTimeoutRef.current);
-  }, [isPlaying, currentTime, anyPopoverOpen]);
+    // Intentionally excludes currentTime: that updates every 250ms
+    // from the polling loop, which would otherwise reset this timer
+    // continuously and mean it could never fire while playing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anyPopoverOpen]);
 
   const revealBar = () => {
     setBarVisible(true);
     clearTimeout(hideTimeoutRef.current);
-    if (isPlaying && !anyPopoverOpen) {
+    if (!anyPopoverOpen) {
       hideTimeoutRef.current = setTimeout(() => setBarVisible(false), AUTO_HIDE_MS);
     }
   };
@@ -272,6 +318,42 @@ export function CustomControls({ playerRef, ready, YT, videoId, onSeek }) {
     player.seekTo(time, true);
     setCurrentTime(time);
     onSeek?.(time);
+  };
+
+  const skipBy = (delta) => {
+    seekBy(delta);
+    setSkipFlash({ direction: delta < 0 ? 'back' : 'forward', id: Date.now(), seconds: SKIP_SECONDS });
+    setTimeout(() => setSkipFlash(null), 500);
+  };
+
+  // Tap zones covering the left/right halves of the video. A single
+  // tap toggles play/pause, like any normal player. A second tap on
+  // the SAME side within the window is treated as a double-tap skip
+  // (matching YouTube's mobile app), and further rapid taps on that
+  // side keep extending it - tap 3 times fast and it skips 30s total,
+  // showing a running "30 sec" flash rather than three separate ones.
+  // Built on onClick rather than the native dblclick event, since
+  // mobile browsers don't reliably fire dblclick from a double-tap.
+  const handleZoneTap = (side) => {
+    const now = Date.now();
+    const gap = now - lastTapRef.current[side];
+    lastTapRef.current[side] = now;
+
+    if (gap < DOUBLE_TAP_WINDOW_MS) {
+      tapCountRef.current[side] += 1;
+      const delta = side === 'left' ? -SKIP_SECONDS : SKIP_SECONDS;
+      seekBy(delta);
+      setSkipFlash({
+        direction: side === 'left' ? 'back' : 'forward',
+        id: Date.now(),
+        seconds: tapCountRef.current[side] * SKIP_SECONDS,
+      });
+      setTimeout(() => setSkipFlash(null), 500);
+    } else {
+      tapCountRef.current[side] = 0;
+      togglePlay();
+    }
+    revealBar();
   };
 
   const toggleFullscreen = () => {
@@ -349,20 +431,17 @@ export function CustomControls({ playerRef, ready, YT, videoId, onSeek }) {
       ref={wrapperRef}
       tabIndex={0}
       onKeyDown={handleKeyDown}
+      onMouseEnter={revealBar}
       onMouseMove={revealBar}
-      className="absolute inset-0 outline-none"
+      className={`absolute inset-0 outline-none ${barVisible ? '' : 'cursor-none'}`}
     >
       {/* Paused-state cover: physically hides the iframe (and
           whatever YouTube renders underneath, including the "more
           videos" panel) behind our own UI. Shows the video's own
-          thumbnail, blurred, instead of flat black. */}
+          thumbnail, blurred, instead of flat black. Purely decorative
+          - the tap zones below handle all interaction. */}
       {!isPlaying ? (
-        <button
-          type="button"
-          onClick={togglePlay}
-          aria-label="Play"
-          className="group absolute inset-0 z-[5] flex items-center justify-center overflow-hidden bg-black"
-        >
+        <div className="pointer-events-none absolute inset-0 z-[4] overflow-hidden bg-black">
           {thumbnailUrl ? (
             <img
               src={thumbnailUrl}
@@ -372,18 +451,32 @@ export function CustomControls({ playerRef, ready, YT, videoId, onSeek }) {
             />
           ) : null}
           <div className="absolute inset-0 bg-black/40" />
-          <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-white/15 shadow-xl backdrop-blur-sm transition-all duration-150 group-hover:scale-110 group-hover:bg-white/25">
-            <LuPlay className="h-7 w-7 translate-x-0.5 text-white" />
-          </span>
-        </button>
-      ) : (
+        </div>
+      ) : null}
+
+      {/* Left/right tap zones, present in both paused and playing
+          states. A single tap toggles play/pause; a second rapid tap
+          on the same side skips 10s (see handleZoneTap) - works
+          identically for mouse clicks and touch taps. */}
+      <div className="absolute inset-0 z-[5] flex">
         <button
           type="button"
-          onClick={togglePlay}
-          aria-label="Pause"
-          className="absolute inset-0 z-[5] cursor-pointer"
+          onClick={() => handleZoneTap('left')}
+          aria-label="Play or pause, double-tap to rewind 10 seconds"
+          className="h-full w-1/2 cursor-pointer"
         />
-      )}
+        <button
+          type="button"
+          onClick={() => handleZoneTap('right')}
+          aria-label="Play or pause, double-tap to skip forward 10 seconds"
+          className="h-full w-1/2 cursor-pointer"
+        />
+      </div>
+
+      {/* Transient "-10s" / "+10s" flash shown on double-tap skip. */}
+      {skipFlash ? (
+        <SkipFlashBadge key={skipFlash.id} direction={skipFlash.direction} seconds={skipFlash.seconds} />
+      ) : null}
 
       {/* Buffering spinner - shown mid-playback while YouTube is
           loading data. The video's last frame stays visible; this is
@@ -393,6 +486,47 @@ export function CustomControls({ playerRef, ready, YT, videoId, onSeek }) {
           <LuLoader className="h-8 w-8 animate-spin text-white/90 drop-shadow" />
         </div>
       ) : null}
+
+      {/* Center cluster: rewind / play-pause / forward, flanking the
+          main play button the way YouTube's mobile app lays out its
+          overlay controls. Always visible while paused; fades with
+          the rest of the bar while playing. */}
+      <div
+        className={`pointer-events-none absolute inset-0 z-[7] flex items-center justify-center gap-6 transition-opacity duration-300 ${
+          barVisible ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        <button
+          type="button"
+          onClick={() => skipBy(-SKIP_SECONDS)}
+          aria-label={`Rewind ${SKIP_SECONDS} seconds`}
+          className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-sm transition-all duration-150 hover:scale-110 hover:bg-black/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+        >
+          <LuRotateCcw className="h-5 w-5" />
+        </button>
+
+        <button
+          type="button"
+          onClick={togglePlay}
+          aria-label={isPlaying ? 'Pause' : 'Play'}
+          className="pointer-events-auto flex h-16 w-16 items-center justify-center rounded-full bg-black/35 text-white shadow-xl backdrop-blur-sm transition-all duration-150 hover:scale-110 hover:bg-black/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+        >
+          {isPlaying ? (
+            <LuPause className="h-7 w-7" />
+          ) : (
+            <LuPlay className="h-7 w-7 translate-x-0.5" />
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => skipBy(SKIP_SECONDS)}
+          aria-label={`Forward ${SKIP_SECONDS} seconds`}
+          className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-sm transition-all duration-150 hover:scale-110 hover:bg-black/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+        >
+          <LuRotateCw className="h-5 w-5" />
+        </button>
+      </div>
 
       <div
         onMouseEnter={() => clearTimeout(hideTimeoutRef.current)}
