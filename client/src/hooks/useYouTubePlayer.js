@@ -162,6 +162,9 @@ export function useYouTubePlayer({ containerRef, videoId, startTime, onStateChan
         // new tab. Turning native controls off removes the only
         // trigger for that overlay to appear at all.
         playerVars: {
+          enablejsapi: 1,
+  origin: window.location.origin,
+
           controls: 0,
           modestbranding: 1,
           rel: 0,
