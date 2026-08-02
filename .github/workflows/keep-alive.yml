@@ -1,0 +1,43 @@
+name: Keep Backend Warm
+
+# Render's free tier spins a web service down after ~15 minutes of no
+# traffic, and the next request pays a ~30s "cold start" penalty to
+# spin it back up. This workflow just hits our own /api/health
+# endpoint often enough that Render never sees the service go idle,
+# so real users never eat that cold-start delay.
+#
+# Setup (one-time):
+#   1. Deploy the backend on Render and copy its public URL, e.g.
+#      https://synctube-server.onrender.com
+#   2. In this repo: Settings -> Secrets and variables -> Actions
+#      -> New repository secret -> name it RENDER_BACKEND_URL,
+#      value = that URL (no trailing slash).
+#   3. That's it - this runs automatically on the schedule below.
+#      You can also trigger it manually from the Actions tab to
+#      verify it's wired up correctly (workflow_dispatch, below).
+
+on:
+  schedule:
+    # Every 10 minutes - comfortably under Render's ~15 minute idle
+    # timeout. GitHub's scheduler is best-effort and can run a few
+    # minutes late under load, so 10 (not 14) minutes leaves margin.
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {} # lets you click "Run workflow" manually to test
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: |
+          if [ -z "${{ secrets.RENDER_BACKEND_URL }}" ]; then
+            echo "RENDER_BACKEND_URL secret is not set - see the setup comment at the top of this file."
+            exit 1
+          fi
+
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "${{ secrets.RENDER_BACKEND_URL }}/api/health")
+          echo "Health check responded with HTTP $STATUS"
+
+          if [ "$STATUS" != "200" ]; then
+            echo "::warning::Backend health check did not return 200 (got $STATUS). It may be cold-starting or down."
+          fi
